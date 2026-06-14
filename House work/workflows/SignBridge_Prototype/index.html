@@ -1,0 +1,2220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SignBridge — Sign Language Translator</title>
+  <meta name="description" content="Real-time bidirectional sign language translation — completely free and private.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ===== DESIGN SYSTEM TOKENS ===== */
+    :root {
+      --bg-primary: #0B0D1A;
+      --bg-secondary: #10122A;
+      --bg-card: rgba(255,255,255,0.04);
+      --bg-card-hover: rgba(255,255,255,0.07);
+      --border-card: rgba(255,255,255,0.08);
+      --border-card-hover: rgba(255,255,255,0.15);
+      --accent-teal: #00E5CC;
+      --accent-teal-dim: rgba(0,229,204,0.15);
+      --accent-violet: #7C5CFC;
+      --accent-violet-dim: rgba(124,92,252,0.15);
+      --accent-red: #FF4D6A;
+      --accent-amber: #FFB347;
+      --accent-green: #34D399;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8B8DA3;
+      --text-muted: #5A5C72;
+      --radius-card: 16px;
+      --radius-btn: 12px;
+      --radius-pill: 24px;
+      --radius-circle: 50%;
+      --shadow-glow-teal: 0 0 30px rgba(0,229,204,0.15);
+      --shadow-glow-violet: 0 0 30px rgba(124,92,252,0.15);
+      --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 30%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(124,92,252,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: var(--font); cursor: pointer; border: none; outline: none; }
+    input, select, textarea { font-family: var(--font); outline: none; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+    /* ===== NAVBAR ===== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      height: 64px;
+      background: rgba(11,13,26,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-card);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 20px; font-weight: 700; color: var(--text-primary);
+      cursor: pointer;
+    }
+    .nav-logo .logo-icon {
+      font-size: 24px;
+      filter: drop-shadow(0 0 8px rgba(0,229,204,0.5));
+    }
+    .nav-logo .admin-badge {
+      font-size: 10px; font-weight: 600;
+      background: var(--accent-violet);
+      color: white;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      margin-left: 4px;
+    }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-link {
+      font-size: 14px; font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color var(--transition-fast);
+      position: relative;
+      padding-bottom: 4px;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--text-primary); }
+    .nav-link.active::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent-teal);
+      border-radius: 1px;
+    }
+    .nav-btn {
+      font-size: 13px; font-weight: 600;
+      padding: 8px 20px;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--accent-teal);
+      color: var(--accent-teal);
+      background: transparent;
+      transition: all var(--transition-fast);
+    }
+    .nav-btn:hover {
+      background: var(--accent-teal);
+      color: var(--bg-primary);
+    }
+    .nav-avatar {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-circle);
+      background: linear-gradient(135deg, var(--accent-teal), var(--accent-violet));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ===== PAGE CONTAINER ===== */
+    .page {
+      display: none;
+      padding-top: 64px;
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 0.5s ease;
+    }
+    .page.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== GLASS CARD ===== */
+    .glass-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-card);
+      backdrop-filter: blur(12px);
+      transition: all var(--transition-fast);
+    }
+    .glass-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-card-hover);
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-teal), #00B8A9);
+      color: var(--bg-primary);
+      font-weight: 600;
+      padding: 14px 32px;
+      border-radius: var(--radius-btn);
+      font-size: 15px;
+      transition: all var(--transition-fast);
+      box-shadow: 0 4px 20px rgba(0,229,204,0.25);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,229,204,0.35);
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--text-primary);
+      font-weight: 500;
+      padding: 12px 28px;
+      border-radius: var(--radius-btn);
+      font-size: 14px;
+      border: 1px solid var(--border-card-hover);
+      transition: all var(--transition-fast);
+    }
+    .btn-outline:hover {
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+    }
+    .btn-sm {
+      padding: 8px 16px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+    .btn-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-btn);
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text-secondary);
+      font-size: 16px;
+      transition: all var(--transition-fast);
+    }
+    .btn-icon:hover { color: var(--accent-teal); border-color: var(--accent-teal); }
+    .btn-icon.danger:hover { color: var(--accent-red); border-color: var(--accent-red); }
+
+    /* ===== PILLS ===== */
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .pill.active, .pill.teal {
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+      background: var(--accent-teal-dim);
+    }
+    .pill.violet {
+      border-color: var(--accent-violet);
+      color: var(--accent-violet);
+      background: var(--accent-violet-dim);
+    }
+    .pill.amber {
+      border-color: var(--accent-amber);
+      color: var(--accent-amber);
+      background: rgba(255,179,71,0.12);
+    }
+    .pill.red {
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+      background: rgba(255,77,106,0.12);
+    }
+    .pill.green {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+      background: rgba(52,211,153,0.12);
+    }
+
+    /* ===== INPUTS ===== */
+    .input-field {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-btn);
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: border-color var(--transition-fast);
+    }
+    .input-field::placeholder { color: var(--text-muted); }
+    .input-field:focus { border-color: var(--accent-teal); }
+
+    .select-field {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-btn);
+      color: var(--text-primary);
+      font-size: 14px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238B8DA3' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      cursor: pointer;
+    }
+    .select-field option { background: var(--bg-secondary); }
+
+    /* ===== TOGGLE SWITCH ===== */
+    .toggle {
+      position: relative;
+      width: 44px; height: 24px;
+      background: var(--text-muted);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      flex-shrink: 0;
+    }
+    .toggle.active { background: var(--accent-teal); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      background: white;
+      border-radius: var(--radius-circle);
+      transition: transform var(--transition-fast);
+    }
+    .toggle.active::after { transform: translateX(20px); }
+
+    /* ===== SLIDER ===== */
+    .slider-wrap { display: flex; flex-direction: column; gap: 8px; }
+    .slider-label {
+      display: flex; justify-content: space-between;
+      font-size: 13px; color: var(--text-secondary);
+    }
+    .slider-track {
+      width: 100%; height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+    }
+    .slider-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-teal), var(--accent-violet));
+      border-radius: 3px;
+      position: relative;
+    }
+    .slider-fill::after {
+      content: '';
+      position: absolute;
+      right: -7px; top: -4px;
+      width: 14px; height: 14px;
+      background: var(--accent-teal);
+      border-radius: var(--radius-circle);
+      box-shadow: 0 0 10px rgba(0,229,204,0.4);
+    }
+
+    /* ===== SECTION HELPERS ===== */
+    .section-pad { padding: 60px 40px; max-width: 1280px; margin: 0 auto; }
+    .section-title {
+      font-size: 28px; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .section-subtitle {
+      font-size: 15px; color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .flex-col { display: flex; flex-direction: column; }
+    .gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; }
+    .gap-24 { gap: 24px; } .gap-32 { gap: 32px; }
+    .text-teal { color: var(--accent-teal); }
+    .text-violet { color: var(--accent-violet); }
+    .text-muted { color: var(--text-muted); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-sm { font-size: 13px; }
+    .text-xs { font-size: 11px; }
+    .fw-600 { font-weight: 600; }
+    .fw-700 { font-weight: 700; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+    .mb-24 { margin-bottom: 24px; }
+    .mb-32 { margin-bottom: 32px; }
+    .mt-16 { margin-top: 16px; }
+    .mt-24 { margin-top: 24px; }
+
+    /* ===== STATUS DOTS ===== */
+    .dot { width: 8px; height: 8px; border-radius: var(--radius-circle); flex-shrink: 0; }
+    .dot.green { background: var(--accent-green); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
+    .dot.red { background: var(--accent-red); box-shadow: 0 0 8px rgba(255,77,106,0.5); }
+    .dot.amber { background: var(--accent-amber); box-shadow: 0 0 8px rgba(255,179,71,0.5); }
+    .dot.teal { background: var(--accent-teal); box-shadow: 0 0 8px rgba(0,229,204,0.5); }
+
+    /* ===== NOTIFICATION BADGE ===== */
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px;
+      padding: 0 6px;
+      border-radius: 10px;
+      font-size: 11px; font-weight: 700;
+      background: var(--accent-red);
+      color: white;
+    }
+
+    /* ======================================================== */
+    /* PAGE 1: LANDING PAGE                                      */
+    /* ======================================================== */
+    .hero {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 100px 40px 60px;
+      max-width: 1280px; margin: 0 auto;
+      min-height: calc(100vh - 64px);
+    }
+    .hero-text { max-width: 560px; }
+    .hero-text h1 {
+      font-size: 56px; font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero-text h1 span {
+      background: linear-gradient(135deg, var(--accent-teal), var(--accent-violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-text p {
+      font-size: 18px; color: var(--text-secondary);
+      line-height: 1.6; margin-bottom: 36px;
+    }
+    .hero-avatar {
+      width: 480px; height: 480px;
+      background: radial-gradient(circle at center, var(--accent-violet-dim) 0%, transparent 70%);
+      border-radius: var(--radius-circle);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .avatar-figure {
+      width: 280px; height: 360px;
+      background: linear-gradient(180deg, rgba(0,229,204,0.15) 0%, rgba(124,92,252,0.15) 100%);
+      border-radius: 140px 140px 40px 40px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: relative;
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+    .avatar-figure .head {
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, #D4A574, #C4956A);
+      border-radius: var(--radius-circle);
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .avatar-figure .head::before {
+      content: '😊';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+    }
+    .avatar-figure .body {
+      width: 120px; height: 100px;
+      background: linear-gradient(135deg, var(--accent-teal-dim), var(--accent-violet-dim));
+      border-radius: 20px;
+      position: relative;
+    }
+    .avatar-figure .hand-l, .avatar-figure .hand-r {
+      width: 30px; height: 60px;
+      background: linear-gradient(180deg, #D4A574, #C4956A);
+      border-radius: 15px;
+      position: absolute;
+    }
+    .avatar-figure .hand-l { left: -20px; top: 10px; transform: rotate(-30deg); }
+    .avatar-figure .hand-r { right: -20px; top: -10px; transform: rotate(20deg); }
+    .avatar-ring {
+      position: absolute;
+      border: 1px solid rgba(0,229,204,0.15);
+      border-radius: var(--radius-circle);
+      animation: pulse-ring 3s ease-in-out infinite;
+    }
+    .avatar-ring:nth-child(2) { width: 320px; height: 320px; animation-delay: 0.5s; }
+    .avatar-ring:nth-child(3) { width: 400px; height: 400px; animation-delay: 1s; }
+    .avatar-ring:nth-child(4) { width: 480px; height: 480px; animation-delay: 1.5s; }
+    @keyframes pulse-ring {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.03); }
+    }
+    .features-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px; padding: 0 40px 80px;
+      max-width: 1280px; margin: 0 auto;
+    }
+    .feature-card {
+      padding: 32px;
+      text-align: center;
+    }
+    .feature-card .f-icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .feature-card h3 {
+      font-size: 18px; font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .feature-card p {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .feature-card:hover { box-shadow: var(--shadow-glow-teal); }
+
+    /* ======================================================== */
+    /* PAGE 2: ABOUT / MISSION                                   */
+    /* ======================================================== */
+    .about-hero {
+      position: relative;
+      height: 360px;
+      background: linear-gradient(135deg, rgba(0,229,204,0.12), rgba(124,92,252,0.12));
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .about-hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 60%, var(--bg-primary) 100%);
+    }
+    .about-hero h2 {
+      font-size: 48px; font-weight: 700;
+      text-align: center;
+      position: relative; z-index: 1;
+      text-shadow: 0 0 40px rgba(0,229,204,0.3);
+    }
+    .about-hero .silhouettes {
+      position: absolute; inset: 0;
+      display: flex; align-items: flex-end; justify-content: center; gap: 40px;
+      padding-bottom: 40px;
+      opacity: 0.15;
+    }
+    .silhouette {
+      width: 60px;
+      background: white;
+      border-radius: 30px 30px 10px 10px;
+    }
+    .stats-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 32px;
+      text-align: center;
+      padding: 60px 0;
+    }
+    .stat-item .stat-number {
+      font-size: 52px; font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .stat-item .stat-label {
+      font-size: 14px; color: var(--text-secondary);
+    }
+    .values-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px; margin-top: 48px;
+    }
+    .value-card { padding: 32px; text-align: center; }
+    .value-card .v-icon { font-size: 32px; margin-bottom: 12px; }
+    .value-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .value-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+    .cta-banner {
+      margin-top: 60px; padding: 48px;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(0,229,204,0.1), rgba(124,92,252,0.1));
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border-card);
+    }
+    .cta-banner h3 { font-size: 28px; font-weight: 700; margin-bottom: 16px; }
+    .page-footer {
+      padding: 32px 40px;
+      border-top: 1px solid var(--border-card);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; color: var(--text-muted);
+      max-width: 1280px; margin: 60px auto 0;
+    }
+
+    /* ======================================================== */
+    /* PAGE 3: LOGIN & SETUP                                     */
+    /* ======================================================== */
+    .auth-page {
+      display: flex; align-items: center; justify-content: center;
+      min-height: calc(100vh - 64px);
+      padding: 40px;
+    }
+    .auth-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 32px; max-width: 900px; width: 100%;
+    }
+    .auth-card { padding: 40px; }
+    .auth-card h2 {
+      font-size: 24px; font-weight: 700; margin-bottom: 8px;
+    }
+    .auth-card .auth-sub {
+      font-size: 14px; color: var(--text-secondary); margin-bottom: 28px;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-label {
+      display: block;
+      font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .divider {
+      display: flex; align-items: center; gap: 16px;
+      margin: 20px 0;
+      color: var(--text-muted); font-size: 13px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: var(--border-card);
+    }
+    .social-btn {
+      width: 100%; padding: 12px;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--border-card);
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 14px; font-weight: 500;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-bottom: 12px;
+      transition: all var(--transition-fast);
+    }
+    .social-btn:hover { border-color: var(--accent-teal); }
+    .role-options { display: flex; gap: 12px; margin-bottom: 20px; }
+    .role-opt {
+      flex: 1; padding: 16px 12px;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--border-card);
+      background: var(--bg-card);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .role-opt:hover, .role-opt.active {
+      border-color: var(--accent-teal);
+      background: var(--accent-teal-dim);
+    }
+    .role-opt .r-icon { font-size: 24px; margin-bottom: 6px; }
+    .role-opt .r-label { font-size: 12px; font-weight: 500; }
+    .context-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ======================================================== */
+    /* PAGE 4: ONBOARDING WIZARD                                 */
+    /* ======================================================== */
+    .onboard-page {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 100px 40px;
+    }
+    .stepper {
+      display: flex; align-items: center; gap: 0;
+      margin-bottom: 48px;
+    }
+    .step-dot-wrap {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      position: relative;
+    }
+    .step-dot {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-circle);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600;
+      border: 2px solid var(--text-muted);
+      color: var(--text-muted);
+      transition: all var(--transition-fast);
+    }
+    .step-dot.done {
+      background: var(--accent-teal);
+      border-color: var(--accent-teal);
+      color: var(--bg-primary);
+    }
+    .step-dot.current {
+      border-color: var(--accent-teal);
+      color: var(--accent-teal);
+      box-shadow: 0 0 16px rgba(0,229,204,0.3);
+    }
+    .step-label {
+      font-size: 11px; font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .step-dot.done + .step-label,
+    .step-dot.current + .step-label { color: var(--text-secondary); }
+    .step-line {
+      width: 80px; height: 2px;
+      background: var(--text-muted);
+      margin: 0 8px;
+      margin-bottom: 20px;
+    }
+    .step-line.done { background: var(--accent-teal); }
+    .onboard-card {
+      max-width: 600px; width: 100%;
+      padding: 48px;
+    }
+    .onboard-card h2 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    .onboard-card .onboard-sub {
+      font-size: 15px; color: var(--text-secondary); margin-bottom: 36px;
+    }
+    .perm-block {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px;
+      border-radius: var(--radius-btn);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-card);
+      margin-bottom: 16px;
+    }
+    .perm-block .p-icon { font-size: 28px; flex-shrink: 0; }
+    .perm-block .p-info { flex: 1; }
+    .perm-block .p-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .perm-block .p-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+    .privacy-note {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px;
+      background: var(--accent-teal-dim);
+      border-radius: var(--radius-btn);
+      border: 1px solid rgba(0,229,204,0.15);
+      margin: 24px 0;
+      font-size: 13px; color: var(--accent-teal);
+    }
+    .skip-link {
+      display: block; text-align: center;
+      margin-top: 16px;
+      font-size: 13px; color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .skip-link:hover { color: var(--text-secondary); }
+
+    /* ======================================================== */
+    /* PAGE 5: INTERACTION HUB                                   */
+    /* ======================================================== */
+    .hub-layout {
+      display: grid; grid-template-columns: 1.5fr 1fr;
+      gap: 24px; padding: 88px 40px 40px;
+      max-width: 1400px; margin: 0 auto;
+      height: calc(100vh - 64px);
+    }
+    .hub-left { display: flex; flex-direction: column; gap: 16px; }
+    .hub-right { display: flex; flex-direction: column; gap: 16px; }
+    .avatar-canvas {
+      flex: 1; min-height: 300px;
+      padding: 40px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .avatar-canvas .avatar-glow {
+      position: absolute;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(124,92,252,0.12) 0%, transparent 70%);
+      border-radius: var(--radius-circle);
+    }
+    .avatar-canvas .avatar-figure { z-index: 1; }
+    .transcript-panel {
+      padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .transcript-text {
+      font-size: 15px; font-weight: 500;
+    }
+    .transcript-text .cursor-blink {
+      display: inline-block;
+      width: 2px; height: 18px;
+      background: var(--accent-teal);
+      margin-left: 4px;
+      vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .webcam-panel {
+      flex: 1; min-height: 200px;
+      position: relative;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .webcam-placeholder {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, rgba(0,229,204,0.03), rgba(124,92,252,0.03));
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .webcam-placeholder .cam-icon { font-size: 48px; opacity: 0.3; }
+    .live-badge {
+      position: absolute; top: 12px; right: 12px;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; color: var(--accent-green);
+    }
+    .mic-section {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      padding: 20px;
+    }
+    .mic-btn {
+      width: 72px; height: 72px;
+      border-radius: var(--radius-circle);
+      background: linear-gradient(135deg, var(--accent-teal), #00B8A9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 0 30px rgba(0,229,204,0.3);
+      transition: all var(--transition-fast);
+      position: relative;
+      color: var(--bg-primary);
+    }
+    .mic-btn::before {
+      content: '';
+      position: absolute; inset: -6px;
+      border-radius: var(--radius-circle);
+      border: 2px solid rgba(0,229,204,0.2);
+      animation: mic-pulse 2s ease-in-out infinite;
+    }
+    @keyframes mic-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.15); opacity: 0; }
+    }
+    .mic-btn:hover { transform: scale(1.08); }
+    .hub-controls {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px;
+    }
+    .mode-toggle {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+
+    /* ======================================================== */
+    /* PAGE 6: CONTROL PANEL (SETTINGS)                          */
+    /* ======================================================== */
+    .settings-section {
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .settings-section h3 {
+      font-size: 16px; font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .settings-section .s-desc {
+      font-size: 13px; color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .preset-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .preset-card {
+      padding: 20px 16px;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--border-card);
+      background: var(--bg-card);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+    .preset-card:hover, .preset-card.active {
+      border-color: var(--accent-teal);
+      background: var(--accent-teal-dim);
+    }
+    .preset-card .pc-icon { font-size: 28px; margin-bottom: 8px; }
+    .preset-card .pc-label { font-size: 13px; font-weight: 500; }
+    .preset-card .pc-toggle {
+      position: absolute; top: 10px; right: 10px;
+    }
+    .avatar-preview-settings {
+      display: flex; gap: 32px; align-items: flex-start;
+    }
+    .mini-avatar-preview {
+      width: 160px; height: 200px;
+      border-radius: var(--radius-card);
+      background: linear-gradient(180deg, rgba(0,229,204,0.08) 0%, rgba(124,92,252,0.08) 100%);
+      border: 1px solid var(--border-card);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .mini-avatar-preview .head {
+      width: 50px; height: 50px;
+      background: linear-gradient(135deg, #D4A574, #C4956A);
+      border-radius: var(--radius-circle);
+    }
+    .slider-group { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+    .access-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .access-row:last-child { border-bottom: none; }
+    .access-row .a-label { font-size: 14px; }
+
+    /* ======================================================== */
+    /* PAGE 7: HISTORY & PHRASEBOOK                              */
+    /* ======================================================== */
+    .tabs-bar {
+      display: flex; gap: 0;
+      border-bottom: 1px solid var(--border-card);
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      padding: 14px 24px;
+      font-size: 14px; font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .tab-btn.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent-teal);
+    }
+    .tab-btn:hover { color: var(--text-secondary); }
+    .search-bar {
+      position: relative; margin-bottom: 16px;
+    }
+    .search-bar .search-icon {
+      position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: 16px;
+    }
+    .search-bar input {
+      padding-left: 44px;
+    }
+    .filter-pills {
+      display: flex; gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .history-card {
+      padding: 20px 24px;
+      margin-bottom: 12px;
+    }
+    .history-card .h-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .history-card .h-date { font-size: 13px; color: var(--text-muted); }
+    .history-card .h-tags { display: flex; gap: 8px; }
+    .history-card .h-preview {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.6; margin-bottom: 12px;
+    }
+    .history-card .h-bottom {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .history-card .h-meta { font-size: 12px; color: var(--text-muted); }
+    .history-card .h-actions { display: flex; gap: 8px; }
+    .fab {
+      position: fixed; bottom: 32px; right: 32px;
+      width: 56px; height: 56px;
+      border-radius: var(--radius-circle);
+      background: linear-gradient(135deg, var(--accent-teal), #00B8A9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 20px rgba(0,229,204,0.3);
+      color: var(--bg-primary);
+      z-index: 100;
+      transition: all var(--transition-fast);
+    }
+    .fab:hover { transform: scale(1.1); }
+
+    /* ======================================================== */
+    /* PAGE 8: ADMIN - DICTIONARY EDITOR                         */
+    /* ======================================================== */
+    .admin-layout-3col {
+      display: grid; grid-template-columns: 280px 1fr 300px;
+      gap: 20px;
+      padding: 88px 24px 24px;
+      height: calc(100vh - 64px);
+    }
+    .admin-panel {
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .admin-panel h3 {
+      font-size: 15px; font-weight: 600; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .word-list { display: flex; flex-direction: column; gap: 4px; }
+    .word-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all var(--transition-fast);
+    }
+    .word-item:hover { background: rgba(255,255,255,0.04); }
+    .word-item.selected {
+      background: var(--accent-teal-dim);
+      border-left: 3px solid var(--accent-teal);
+    }
+    .anim-preview {
+      width: 100%; height: 220px;
+      background: linear-gradient(180deg, rgba(0,229,204,0.06) 0%, rgba(124,92,252,0.06) 100%);
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--border-card);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .anim-preview .play-overlay {
+      width: 48px; height: 48px;
+      border-radius: var(--radius-circle);
+      background: rgba(0,229,204,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .synonym-tags {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 8px;
+    }
+    .syn-tag {
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      background: var(--accent-teal-dim);
+      border: 1px solid rgba(0,229,204,0.2);
+      color: var(--accent-teal);
+      font-size: 12px;
+    }
+    .add-tag {
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      background: transparent;
+      border: 1px dashed var(--border-card-hover);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .add-tag:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+    .dialect-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 13px;
+    }
+    .gap-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .gap-item .g-word { font-size: 14px; font-weight: 500; }
+    .gap-item .g-count { font-size: 12px; color: var(--text-muted); }
+
+    /* ======================================================== */
+    /* PAGE 9: ADMIN - GESTURE DATA COLLECTOR                    */
+    /* ======================================================== */
+    .collector-layout {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      padding: 88px 24px 24px;
+      height: calc(100vh - 64px);
+    }
+    .collector-panel { padding: 20px; overflow-y: auto; }
+    .collector-panel h3 {
+      font-size: 15px; font-weight: 600; margin-bottom: 16px;
+    }
+    .camera-feed {
+      width: 100%; height: 280px;
+      background: #0a0a14;
+      border-radius: var(--radius-btn);
+      border: 1px solid var(--border-card);
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .skeleton-overlay {
+      position: relative;
+      width: 120px; height: 200px;
+    }
+    .skeleton-overlay .sk-head {
+      width: 30px; height: 30px;
+      border: 2px solid var(--accent-teal);
+      border-radius: var(--radius-circle);
+      margin: 0 auto 8px;
+    }
+    .skeleton-overlay .sk-body {
+      width: 2px; height: 50px;
+      background: var(--accent-teal);
+      margin: 0 auto;
+    }
+    .skeleton-overlay .sk-arms {
+      position: absolute; top: 48px; left: 50%;
+      width: 80px; height: 2px;
+      background: var(--accent-teal);
+      transform: translateX(-50%);
+    }
+    .skeleton-overlay .sk-dot {
+      position: absolute;
+      width: 8px; height: 8px;
+      background: var(--accent-teal);
+      border-radius: var(--radius-circle);
+      box-shadow: 0 0 8px rgba(0,229,204,0.5);
+    }
+    .rec-controls {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+    }
+    .rec-btn {
+      width: 64px; height: 64px;
+      border-radius: var(--radius-circle);
+      background: linear-gradient(135deg, var(--accent-red), #E04060);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 20px rgba(255,77,106,0.3);
+      color: white;
+      transition: all var(--transition-fast);
+    }
+    .rec-btn:hover { transform: scale(1.08); }
+    .rec-btn.recording {
+      animation: rec-pulse 1s ease-in-out infinite;
+    }
+    @keyframes rec-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,77,106,0.3); }
+      50% { box-shadow: 0 0 40px rgba(255,77,106,0.6); }
+    }
+    .timer-display {
+      font-size: 32px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent-red);
+    }
+    .progress-bar-wrap {
+      width: 100%; height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-teal), var(--accent-violet));
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .coord-grid {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: var(--accent-teal);
+      line-height: 1.8;
+      background: rgba(0,229,204,0.03);
+      border: 1px solid rgba(0,229,204,0.1);
+      border-radius: 8px;
+      padding: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .mapping-form { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ======================================================== */
+    /* PAGE 10: ADMIN - DEVELOPER DASHBOARD                      */
+    /* ======================================================== */
+    .dash-grid {
+      padding: 88px 40px 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+    .metric-cards {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+    }
+    .metric-card {
+      padding: 24px;
+    }
+    .metric-card .m-label {
+      font-size: 13px; color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .metric-card .m-value {
+      font-size: 36px; font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .sparkline {
+      width: 100%; height: 40px;
+      display: flex; align-items: flex-end; gap: 3px;
+    }
+    .sparkline .bar {
+      flex: 1;
+      background: linear-gradient(180deg, var(--accent-teal), rgba(0,229,204,0.2));
+      border-radius: 2px 2px 0 0;
+      transition: height var(--transition-fast);
+    }
+    .pipeline-visual {
+      padding: 32px;
+    }
+    .pipeline-visual h3 { font-size: 16px; font-weight: 600; margin-bottom: 24px; }
+    .pipeline-flow {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .pipeline-node {
+      padding: 16px 24px;
+      border-radius: var(--radius-btn);
+      background: rgba(0,229,204,0.06);
+      border: 1px solid rgba(0,229,204,0.15);
+      font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+    }
+    .pipeline-arrow {
+      font-size: 20px;
+      color: var(--accent-teal);
+      padding: 0 8px;
+      opacity: 0.5;
+    }
+    .dash-bottom {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .flagged-panel { padding: 24px; }
+    .flagged-panel h3 {
+      font-size: 15px; font-weight: 600; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .flag-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 13px;
+    }
+    .flag-item .f-word { font-weight: 500; }
+    .flag-item .f-details { color: var(--text-muted); }
+    .health-panel { padding: 24px; }
+    .health-panel h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+    .health-check {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0;
+      font-size: 14px;
+    }
+    .health-check .check-icon {
+      width: 24px; height: 24px;
+      border-radius: var(--radius-circle);
+      background: var(--accent-green);
+      color: var(--bg-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .retrain-section { padding: 24px; }
+    .retrain-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+    .retrain-bar {
+      margin-top: 8px;
+    }
+    .retrain-label {
+      display: flex; justify-content: space-between;
+      font-size: 13px; color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      .hub-layout { grid-template-columns: 1fr; height: auto; }
+      .admin-layout-3col { grid-template-columns: 1fr; height: auto; }
+      .collector-layout { grid-template-columns: 1fr; height: auto; }
+    }
+    @media (max-width: 768px) {
+      .hero { flex-direction: column; text-align: center; padding: 80px 24px 40px; }
+      .hero-text h1 { font-size: 36px; }
+      .hero-avatar { width: 300px; height: 300px; }
+      .features-row { grid-template-columns: 1fr; padding: 0 24px 40px; }
+      .auth-grid { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .preset-cards { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+      .section-pad { padding: 40px 20px; }
+      .dash-bottom { grid-template-columns: 1fr; }
+      .metric-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR (Customer) ===== -->
+  <nav class="navbar" id="navbar-customer">
+    <div class="nav-logo" onclick="showPage('landing')">
+      <span class="logo-icon">🤟</span>
+      <span>SignBridge</span>
+    </div>
+    <div class="nav-links">
+      <span class="nav-link" data-page="landing" onclick="showPage('landing')">Home</span>
+      <span class="nav-link" data-page="hub" onclick="showPage('hub')">Translate</span>
+      <span class="nav-link" data-page="settings" onclick="showPage('settings')">Settings</span>
+      <span class="nav-link" data-page="history" onclick="showPage('history')">History</span>
+      <span class="nav-link" data-page="about" onclick="showPage('about')">About</span>
+      <button class="nav-btn" onclick="showPage('login')">Login</button>
+    </div>
+  </nav>
+
+  <!-- ===== NAVBAR (Admin) ===== -->
+  <nav class="navbar" id="navbar-admin" style="display:none;">
+    <div class="nav-logo" onclick="showPage('landing')">
+      <span class="logo-icon">🤟</span>
+      <span>SignBridge</span>
+      <span class="admin-badge">ADMIN</span>
+    </div>
+    <div class="nav-links">
+      <span class="nav-link" data-page="dictionary" onclick="showPage('dictionary')">Dictionary</span>
+      <span class="nav-link" data-page="collector" onclick="showPage('collector')">Collector</span>
+      <span class="nav-link" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</span>
+      <span class="nav-link" onclick="switchToCustomer()" style="color:var(--accent-amber);">← Customer View</span>
+      <div class="nav-avatar">A</div>
+    </div>
+  </nav>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 1: LANDING                                                   -->
+  <!-- ================================================================ -->
+  <div class="page active" id="page-landing">
+    <div class="hero">
+      <div class="hero-text">
+        <h1>Break Every Barrier.<br><span>Speak With Your Hands.</span></h1>
+        <p>Real-time bidirectional sign language translation — completely free and private. No API costs. No data leaves your device.</p>
+        <button class="btn-primary" onclick="showPage('login')" style="font-size:17px; padding:18px 40px;">Start Translating →</button>
+      </div>
+      <div class="hero-avatar">
+        <div class="avatar-ring"></div>
+        <div class="avatar-ring"></div>
+        <div class="avatar-ring"></div>
+        <div class="avatar-figure">
+          <div class="head"></div>
+          <div class="body">
+            <div class="hand-l"></div>
+            <div class="hand-r"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="features-row">
+      <div class="glass-card feature-card">
+        <span class="f-icon">🌐</span>
+        <h3>Dialect Engine</h3>
+        <p>Switch between ISL, ASL, BSL and regional variants instantly.</p>
+      </div>
+      <div class="glass-card feature-card">
+        <span class="f-icon">🔄</span>
+        <h3>Two-Way Translation</h3>
+        <p>Voice-to-Sign and Sign-to-Voice in real time.</p>
+      </div>
+      <div class="glass-card feature-card">
+        <span class="f-icon">💜</span>
+        <h3>Emotion-Aware Avatar</h3>
+        <p>Facial expressions that match the speaker's emotional tone.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 2: ABOUT / MISSION                                           -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-about">
+    <div class="about-hero">
+      <div class="silhouettes">
+        <div class="silhouette" style="height:120px;"></div>
+        <div class="silhouette" style="height:140px;"></div>
+        <div class="silhouette" style="height:110px;"></div>
+        <div class="silhouette" style="height:130px;"></div>
+        <div class="silhouette" style="height:125px;"></div>
+      </div>
+      <h2>Communication is a<br>Human Right</h2>
+    </div>
+    <div class="section-pad">
+      <h2 class="section-title mb-16">Why We Built SignBridge</h2>
+      <p class="text-secondary" style="max-width:700px; line-height:1.8; font-size:16px;">
+        Over 70 million people worldwide are deaf. In most daily interactions — doctor visits, classrooms, service desks — the communication gap remains wide. We built SignBridge to close that gap with technology that's free, private, and instantly accessible to anyone with a browser.
+      </p>
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-number text-teal">70M+</div>
+          <div class="stat-label">Deaf People Worldwide</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number text-violet">300+</div>
+          <div class="stat-label">Sign Languages Globally</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number text-teal">₹0</div>
+          <div class="stat-label">Cost to Use</div>
+        </div>
+      </div>
+      <div class="values-row">
+        <div class="glass-card value-card">
+          <div class="v-icon">🛡️</div>
+          <h3>Privacy First</h3>
+          <p>All processing happens on your device. Your video and audio never leave the browser.</p>
+        </div>
+        <div class="glass-card value-card">
+          <div class="v-icon">🎁</div>
+          <h3>Free Forever</h3>
+          <p>No API costs, no subscriptions, no hidden charges. Zero cost architecture.</p>
+        </div>
+        <div class="glass-card value-card">
+          <div class="v-icon">👥</div>
+          <h3>Community Driven</h3>
+          <p>Help us improve by reporting incorrect signs and contributing gesture data.</p>
+        </div>
+      </div>
+      <div class="cta-banner">
+        <h3>Ready to Bridge the Gap?</h3>
+        <p class="text-secondary mb-24">Join thousands using SignBridge for free, real-time sign language translation.</p>
+        <button class="btn-primary" onclick="showPage('login')">Start Translating →</button>
+      </div>
+    </div>
+    <div class="page-footer">
+      <span>© 2026 SignBridge. All rights reserved.</span>
+      <span>Open Source · GitHub · Privacy Policy</span>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 3: LOGIN & SETUP                                             -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-login">
+    <div class="auth-page">
+      <div class="auth-grid">
+        <div class="glass-card auth-card">
+          <h2>Welcome Back</h2>
+          <p class="auth-sub">Sign in to your SignBridge account</p>
+          <div class="form-group">
+            <label class="form-label">Email address</label>
+            <input type="email" class="input-field" placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="input-field" placeholder="••••••••">
+          </div>
+          <button class="btn-primary" style="width:100%;" onclick="showPage('onboarding')">Sign In</button>
+          <div class="divider">or</div>
+          <button class="social-btn">🔵 Continue with Google</button>
+          <button class="social-btn">⚫ Continue with Apple</button>
+          <p class="text-sm text-muted mt-16" style="text-align:center;">
+            Don't have an account? <span class="text-teal" style="cursor:pointer;">Sign up</span>
+          </p>
+          <p class="text-sm mt-16" style="text-align:center;">
+            <span class="text-violet" style="cursor:pointer;" onclick="switchToAdmin()">Admin Login →</span>
+          </p>
+        </div>
+        <div class="glass-card auth-card">
+          <h2>Quick Setup</h2>
+          <p class="auth-sub">Tell us about yourself for a personalized experience</p>
+          <label class="form-label">I am</label>
+          <div class="role-options">
+            <div class="role-opt active" onclick="selectRole(this)">
+              <div class="r-icon">👂</div>
+              <div class="r-label">Deaf / HoH</div>
+            </div>
+            <div class="role-opt" onclick="selectRole(this)">
+              <div class="r-icon">🔊</div>
+              <div class="r-label">Hearing</div>
+            </div>
+            <div class="role-opt" onclick="selectRole(this)">
+              <div class="r-icon">📚</div>
+              <div class="r-label">Educator</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Primary Dialect</label>
+            <select class="select-field">
+              <option>Indian Sign Language (ISL)</option>
+              <option>American Sign Language (ASL)</option>
+              <option>British Sign Language (BSL)</option>
+            </select>
+          </div>
+          <label class="form-label">Context</label>
+          <div class="context-pills">
+            <span class="pill active" onclick="togglePill(this)">💬 Casual</span>
+            <span class="pill" onclick="togglePill(this)">🏥 Medical</span>
+            <span class="pill" onclick="togglePill(this)">🎓 Academic</span>
+            <span class="pill" onclick="togglePill(this)">⚠️ Emergency</span>
+          </div>
+          <button class="btn-outline mt-24" style="width:100%;">Save Preferences</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 4: ONBOARDING WIZARD                                         -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-onboarding">
+    <div class="onboard-page">
+      <div class="stepper">
+        <div class="step-dot-wrap">
+          <div class="step-dot done">✓</div>
+          <span class="step-label">Welcome</span>
+        </div>
+        <div class="step-line done"></div>
+        <div class="step-dot-wrap">
+          <div class="step-dot current">2</div>
+          <span class="step-label">Permissions</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-dot-wrap">
+          <div class="step-dot">3</div>
+          <span class="step-label">Calibrate</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-dot-wrap">
+          <div class="step-dot">4</div>
+          <span class="step-label">Ready</span>
+        </div>
+      </div>
+      <div class="glass-card onboard-card">
+        <h2>Let's Get You Set Up</h2>
+        <p class="onboard-sub">We need access to your camera and microphone to power the translator.</p>
+        <div class="perm-block">
+          <div class="p-icon">📷</div>
+          <div class="p-info">
+            <div class="p-title">Camera Access</div>
+            <div class="p-desc">Needed for sign-to-text translation. Your video stays on your device — never uploaded.</div>
+          </div>
+          <button class="btn-primary btn-sm">Allow</button>
+        </div>
+        <div class="perm-block">
+          <div class="p-icon">🎙️</div>
+          <div class="p-info">
+            <div class="p-title">Microphone Access</div>
+            <div class="p-desc">Needed for voice-to-sign. Speech is processed entirely in your browser.</div>
+          </div>
+          <button class="btn-primary btn-sm">Allow</button>
+        </div>
+        <div class="privacy-note">
+          🛡️ 100% Private — all processing happens locally on your device. Nothing is uploaded.
+        </div>
+        <button class="btn-primary" style="width:100%;" onclick="showPage('hub')">Continue →</button>
+        <span class="skip-link" onclick="showPage('hub')">Skip for now</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 5: INTERACTION HUB                                           -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-hub">
+    <div class="hub-layout">
+      <div class="hub-left">
+        <div class="glass-card avatar-canvas">
+          <div class="avatar-glow"></div>
+          <div class="avatar-figure" style="transform:scale(1.2);">
+            <div class="head"></div>
+            <div class="body">
+              <div class="hand-l"></div>
+              <div class="hand-r"></div>
+            </div>
+          </div>
+        </div>
+        <div class="glass-card transcript-panel">
+          <div class="transcript-text">
+            Hello, how are you today?<span class="cursor-blink"></span>
+          </div>
+          <span class="pill teal" style="font-size:12px;">😊 Warm</span>
+        </div>
+      </div>
+      <div class="hub-right">
+        <div class="glass-card webcam-panel">
+          <div class="live-badge"><span class="dot green"></span> LIVE</div>
+          <div class="webcam-placeholder">
+            <div class="cam-icon">📹</div>
+            <span>Camera feed will appear here</span>
+            <span class="text-xs text-muted">MediaPipe landmarks overlay active</span>
+          </div>
+        </div>
+        <div class="mic-section">
+          <button class="mic-btn" onclick="toggleMic(this)">🎙️</button>
+          <input type="text" class="input-field" placeholder="Type a message..." style="max-width:320px; text-align:center;">
+        </div>
+        <div class="glass-card hub-controls">
+          <div class="mode-toggle">
+            <span>Voice → Sign</span>
+            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            <span>Sign → Voice</span>
+          </div>
+          <span class="pill teal">ISL</span>
+          <button class="btn-icon" title="Report Sign">🚩</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 6: CONTROL PANEL / SETTINGS                                  -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-settings">
+    <div class="section-pad">
+      <h1 class="section-title">Settings & Configuration</h1>
+      <p class="section-subtitle">Customize your translator experience.</p>
+
+      <div class="glass-card settings-section">
+        <h3>🌐 Language & Dialect</h3>
+        <p class="s-desc">Select your primary sign language and regional variant.</p>
+        <div class="grid-2" style="max-width:600px;">
+          <div>
+            <label class="form-label">Sign Language</label>
+            <select class="select-field">
+              <option>Indian Sign Language (ISL)</option>
+              <option>American Sign Language (ASL)</option>
+              <option>British Sign Language (BSL)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Regional Variant</label>
+            <select class="select-field">
+              <option>South India</option>
+              <option>North India</option>
+              <option>East India</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card settings-section">
+        <h3>🎯 Context Presets</h3>
+        <p class="s-desc">Activate specialized dictionaries for your environment.</p>
+        <div class="preset-cards">
+          <div class="preset-card active" onclick="togglePreset(this)">
+            <div class="pc-toggle"><div class="toggle active" style="width:36px;height:20px;"></div></div>
+            <div class="pc-icon">💬</div>
+            <div class="pc-label">Casual</div>
+          </div>
+          <div class="preset-card" onclick="togglePreset(this)">
+            <div class="pc-toggle"><div class="toggle" style="width:36px;height:20px;"></div></div>
+            <div class="pc-icon">🏥</div>
+            <div class="pc-label">Medical</div>
+          </div>
+          <div class="preset-card" onclick="togglePreset(this)">
+            <div class="pc-toggle"><div class="toggle" style="width:36px;height:20px;"></div></div>
+            <div class="pc-icon">🎓</div>
+            <div class="pc-label">Academic</div>
+          </div>
+          <div class="preset-card" onclick="togglePreset(this)">
+            <div class="pc-toggle"><div class="toggle" style="width:36px;height:20px;"></div></div>
+            <div class="pc-icon">⚠️</div>
+            <div class="pc-label">Emergency</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card settings-section">
+        <h3>🤖 Avatar Customization</h3>
+        <p class="s-desc">Adjust the signing avatar's appearance and behavior.</p>
+        <div class="avatar-preview-settings">
+          <div class="mini-avatar-preview">
+            <div class="head"></div>
+          </div>
+          <div class="slider-group">
+            <div class="slider-wrap">
+              <div class="slider-label"><span>Animation Speed</span><span class="text-teal">70%</span></div>
+              <div class="slider-track"><div class="slider-fill" style="width:70%"></div></div>
+            </div>
+            <div class="slider-wrap">
+              <div class="slider-label"><span>Emotion Intensity</span><span class="text-teal">50%</span></div>
+              <div class="slider-track"><div class="slider-fill" style="width:50%"></div></div>
+            </div>
+            <div class="slider-wrap">
+              <div class="slider-label"><span>Sign Size</span><span class="text-teal">60%</span></div>
+              <div class="slider-track"><div class="slider-fill" style="width:60%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card settings-section">
+        <h3>♿ Accessibility</h3>
+        <p class="s-desc">Optimize the interface for your needs.</p>
+        <div class="access-row">
+          <span class="a-label">High Contrast Mode</span>
+          <div class="toggle" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="access-row">
+          <span class="a-label">Large Text</span>
+          <div class="toggle" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="access-row">
+          <span class="a-label">Reduced Motion</span>
+          <div class="toggle" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="access-row">
+          <span class="a-label">Screen Reader Optimization</span>
+          <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:16px;">
+        <button class="btn-primary" onclick="showPage('hub')" style="padding:16px 60px;">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 7: HISTORY & PHRASEBOOK                                      -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-history">
+    <div class="section-pad">
+      <h1 class="section-title">Your Conversations</h1>
+      <p class="section-subtitle">Review past sessions and manage saved phrases.</p>
+      <div class="tabs-bar">
+        <button class="tab-btn active" onclick="switchTab(this)">Session History</button>
+        <button class="tab-btn" onclick="switchTab(this)">Phrasebook</button>
+      </div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="input-field" placeholder="Search conversations..." style="padding-left:44px;">
+      </div>
+      <div class="filter-pills">
+        <span class="pill active" onclick="togglePill(this)">All</span>
+        <span class="pill" onclick="togglePill(this)">Today</span>
+        <span class="pill" onclick="togglePill(this)">This Week</span>
+        <span class="pill" onclick="togglePill(this)">Medical</span>
+        <span class="pill" onclick="togglePill(this)">Academic</span>
+        <span class="pill" onclick="togglePill(this)">Casual</span>
+      </div>
+
+      <div class="glass-card history-card">
+        <div class="h-top">
+          <span class="h-date">June 14, 2026 — 3:42 PM</span>
+          <div class="h-tags">
+            <span class="pill teal" style="padding:4px 10px;">ISL</span>
+            <span class="pill violet" style="padding:4px 10px;">Medical</span>
+          </div>
+        </div>
+        <div class="h-preview">Doctor: "Can you describe your symptoms?"<br>Patient signs: headache, three days, strong pain</div>
+        <div class="h-bottom">
+          <span class="h-meta">18 signs translated</span>
+          <div class="h-actions">
+            <button class="btn-icon" title="Replay" onclick="showPage('hub')">▶</button>
+            <button class="btn-icon" title="Save">📌</button>
+            <button class="btn-icon danger" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card history-card">
+        <div class="h-top">
+          <span class="h-date">June 13, 2026 — 11:15 AM</span>
+          <div class="h-tags">
+            <span class="pill teal" style="padding:4px 10px;">ISL</span>
+            <span class="pill" style="padding:4px 10px; border-color: var(--text-muted);">Casual</span>
+          </div>
+        </div>
+        <div class="h-preview">"Hello, my name is Amaresh. Nice to meet you."<br>Response: "Hi Amaresh! Welcome to the class."</div>
+        <div class="h-bottom">
+          <span class="h-meta">12 signs translated</span>
+          <div class="h-actions">
+            <button class="btn-icon" title="Replay" onclick="showPage('hub')">▶</button>
+            <button class="btn-icon" title="Save">📌</button>
+            <button class="btn-icon danger" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card history-card">
+        <div class="h-top">
+          <span class="h-date">June 12, 2026 — 9:30 AM</span>
+          <div class="h-tags">
+            <span class="pill teal" style="padding:4px 10px;">ASL</span>
+            <span class="pill violet" style="padding:4px 10px;">Academic</span>
+          </div>
+        </div>
+        <div class="h-preview">Lecture: "Today we will cover photosynthesis."<br>Student signed: question, sunlight, energy, chlorophyll</div>
+        <div class="h-bottom">
+          <span class="h-meta">34 signs translated</span>
+          <div class="h-actions">
+            <button class="btn-icon" title="Replay" onclick="showPage('hub')">▶</button>
+            <button class="btn-icon" title="Save">📌</button>
+            <button class="btn-icon danger" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="fab" title="Export Sessions">⬇</button>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 8: ADMIN - DICTIONARY EDITOR                                 -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-dictionary">
+    <div class="admin-layout-3col">
+      <div class="glass-card admin-panel">
+        <h3>📖 Word Library</h3>
+        <input type="text" class="input-field mb-16" placeholder="Search words...">
+        <div class="word-list">
+          <div class="word-item selected"><span class="dot teal"></span> Doctor</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> Hello</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> Thank You</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> Emergency</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> School</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot amber"></span> Hospital</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot red"></span> Antibiotics</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot red"></span> Prescription</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> Water</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> Food</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot teal"></span> Help</div>
+          <div class="word-item" onclick="selectWord(this)"><span class="dot amber"></span> Appointment</div>
+        </div>
+      </div>
+
+      <div class="glass-card admin-panel">
+        <h3>Doctor — Sign Detail</h3>
+        <div class="anim-preview">
+          <div class="play-overlay">▶</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Animation File</label>
+          <select class="select-field">
+            <option>doctor_isl_v2.gltf</option>
+            <option>doctor_isl_v1.gltf</option>
+            <option>doctor_asl_v1.gltf</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Synonyms & Aliases</label>
+          <div class="synonym-tags">
+            <span class="syn-tag">physician</span>
+            <span class="syn-tag">MD</span>
+            <span class="syn-tag">surgeon</span>
+            <span class="syn-tag">doc</span>
+            <button class="add-tag">+ Add</button>
+          </div>
+        </div>
+        <div class="mt-24">
+          <label class="form-label">Dialect Variants</label>
+          <div class="dialect-row">
+            <span>ISL — North India</span>
+            <span class="pill green" style="padding:3px 10px;">✓ Mapped</span>
+          </div>
+          <div class="dialect-row">
+            <span>ISL — South India</span>
+            <span class="pill amber" style="padding:3px 10px;">Needs Review</span>
+          </div>
+          <div class="dialect-row">
+            <span>ASL — Standard</span>
+            <span class="pill green" style="padding:3px 10px;">✓ Mapped</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card admin-panel">
+        <h3>Dictionary Gaps <span class="badge">12</span></h3>
+        <p class="text-sm text-muted mb-16">Words users searched that have no translation.</p>
+        <div class="gap-item">
+          <div><div class="g-word">antibiotics</div><div class="g-count">Searched 45 times</div></div>
+          <button class="btn-primary btn-sm">+ Add</button>
+        </div>
+        <div class="gap-item">
+          <div><div class="g-word">prescription</div><div class="g-count">Searched 38 times</div></div>
+          <button class="btn-primary btn-sm">+ Add</button>
+        </div>
+        <div class="gap-item">
+          <div><div class="g-word">MRI</div><div class="g-count">Searched 29 times</div></div>
+          <button class="btn-primary btn-sm">+ Add</button>
+        </div>
+        <div class="gap-item">
+          <div><div class="g-word">ultrasound</div><div class="g-count">Searched 22 times</div></div>
+          <button class="btn-primary btn-sm">+ Add</button>
+        </div>
+        <div class="gap-item">
+          <div><div class="g-word">vaccination</div><div class="g-count">Searched 19 times</div></div>
+          <button class="btn-primary btn-sm">+ Add</button>
+        </div>
+        <div class="gap-item">
+          <div><div class="g-word">therapy</div><div class="g-count">Searched 15 times</div></div>
+          <button class="btn-primary btn-sm">+ Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 9: ADMIN - GESTURE DATA COLLECTOR                            -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-collector">
+    <div class="collector-layout">
+      <div class="glass-card collector-panel">
+        <h3>📷 Camera & Landmarks</h3>
+        <div class="camera-feed">
+          <div class="live-badge"><span class="dot green"></span> LIVE</div>
+          <div class="skeleton-overlay">
+            <div class="sk-head"></div>
+            <div class="sk-body"></div>
+            <div class="sk-arms"></div>
+            <div class="sk-dot" style="top:10px;left:50%;transform:translateX(-50%);"></div>
+            <div class="sk-dot" style="top:48px;left:0;"></div>
+            <div class="sk-dot" style="top:48px;right:0;"></div>
+            <div class="sk-dot" style="top:100px;left:50%;transform:translateX(-50%);"></div>
+          </div>
+        </div>
+        <p class="text-sm text-muted mb-8">MediaPipe Holistic — tracking 543 landmarks</p>
+        <div style="display:flex;gap:8px;">
+          <span class="pill green">Hands ✓</span>
+          <span class="pill green">Pose ✓</span>
+          <span class="pill green">Face ✓</span>
+        </div>
+      </div>
+
+      <div class="glass-card collector-panel">
+        <h3>🔴 Recording Controls</h3>
+        <div class="rec-controls">
+          <div class="timer-display" id="rec-timer">00.0s</div>
+          <button class="rec-btn" id="rec-btn" onclick="toggleRecording()">⏺</button>
+          <p class="text-sm text-muted">Click to start recording gesture</p>
+          <div style="width:100%;">
+            <div class="flex-between mb-8">
+              <span class="text-sm text-secondary">Frames captured</span>
+              <span class="text-sm text-teal" id="frame-count">0 / 60</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" id="frame-bar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-24">
+          <h3>📋 Mapping</h3>
+          <div class="mapping-form">
+            <div>
+              <label class="form-label">Word to Map</label>
+              <input type="text" class="input-field" placeholder="e.g. Emergency">
+            </div>
+            <div>
+              <label class="form-label">Dialect</label>
+              <select class="select-field">
+                <option>ISL — South</option>
+                <option>ISL — North</option>
+                <option>ASL — Standard</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Emotion Modifier</label>
+              <select class="select-field">
+                <option>Neutral</option>
+                <option>Urgent</option>
+                <option>Happy</option>
+                <option>Sad</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:12px; margin-top:24px;">
+          <button class="btn-primary" style="flex:1;">Add to Dataset</button>
+          <button class="btn-outline" style="flex:1;">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="glass-card collector-panel">
+        <h3>📊 Live Coordinates</h3>
+        <p class="text-sm text-muted mb-16">Real-time landmark (x, y, z) stream</p>
+        <div class="coord-grid" id="coord-stream">
+          <div>[Hand_L] thumb_tip: (0.342, 0.581, -0.024)</div>
+          <div>[Hand_L] index_tip: (0.298, 0.512, -0.018)</div>
+          <div>[Hand_L] middle_tip: (0.310, 0.489, -0.021)</div>
+          <div>[Hand_L] ring_tip: (0.325, 0.501, -0.019)</div>
+          <div>[Hand_L] pinky_tip: (0.341, 0.520, -0.015)</div>
+          <div>[Hand_R] thumb_tip: (0.658, 0.573, -0.022)</div>
+          <div>[Hand_R] index_tip: (0.702, 0.504, -0.017)</div>
+          <div>[Hand_R] middle_tip: (0.690, 0.481, -0.020)</div>
+          <div>[Hand_R] ring_tip: (0.675, 0.493, -0.018)</div>
+          <div>[Hand_R] pinky_tip: (0.659, 0.512, -0.014)</div>
+          <div>[Pose] l_shoulder: (0.380, 0.420, -0.010)</div>
+          <div>[Pose] r_shoulder: (0.620, 0.418, -0.011)</div>
+          <div>[Face] nose_tip: (0.500, 0.350, 0.042)</div>
+        </div>
+        <div class="mt-24">
+          <h3>📦 Collected Samples</h3>
+          <div class="flex-between mt-16" style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+            <span class="text-sm">Emergency (ISL-South)</span>
+            <span class="pill green" style="padding:3px 10px;">12 samples</span>
+          </div>
+          <div class="flex-between" style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+            <span class="text-sm">Hello (ISL-North)</span>
+            <span class="pill green" style="padding:3px 10px;">28 samples</span>
+          </div>
+          <div class="flex-between" style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+            <span class="text-sm">Doctor (ASL)</span>
+            <span class="pill amber" style="padding:3px 10px;">5 samples</span>
+          </div>
+          <div class="flex-between" style="padding:10px 0;">
+            <span class="text-sm">Thank You (ISL-South)</span>
+            <span class="pill green" style="padding:3px 10px;">20 samples</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================ -->
+  <!-- PAGE 10: ADMIN - DEVELOPER DASHBOARD                              -->
+  <!-- ================================================================ -->
+  <div class="page" id="page-dashboard">
+    <div class="dash-grid">
+      <div>
+        <h1 class="section-title">System Architecture & Performance</h1>
+        <p class="section-subtitle">Real-time monitoring of all translation pipelines.</p>
+      </div>
+
+      <div class="metric-cards">
+        <div class="glass-card metric-card">
+          <div class="m-label"><span class="dot green"></span> MediaPipe FPS</div>
+          <div class="m-value text-teal">28.4</div>
+          <div class="sparkline" id="spark-fps"></div>
+        </div>
+        <div class="glass-card metric-card">
+          <div class="m-label"><span class="dot green"></span> NLP Latency</div>
+          <div class="m-value text-violet">42<span class="text-sm text-secondary">ms</span></div>
+          <div class="sparkline" id="spark-latency"></div>
+        </div>
+        <div class="glass-card metric-card">
+          <div class="m-label"><span class="dot teal"></span> Model Accuracy</div>
+          <div class="m-value text-teal">94.2<span class="text-sm text-secondary">%</span></div>
+          <div class="sparkline" id="spark-accuracy"></div>
+        </div>
+      </div>
+
+      <div class="glass-card pipeline-visual">
+        <h3>Data Flow Pipeline</h3>
+        <div class="pipeline-flow">
+          <div class="pipeline-node"><span class="dot green"></span> Camera Input</div>
+          <span class="pipeline-arrow">→</span>
+          <div class="pipeline-node"><span class="dot green"></span> MediaPipe</div>
+          <span class="pipeline-arrow">→</span>
+          <div class="pipeline-node"><span class="dot green"></span> TF.js Classifier</div>
+          <span class="pipeline-arrow">→</span>
+          <div class="pipeline-node"><span class="dot green"></span> Sign ID</div>
+          <span class="pipeline-arrow">→</span>
+          <div class="pipeline-node"><span class="dot green"></span> Three.js Avatar</div>
+        </div>
+      </div>
+
+      <div class="dash-bottom">
+        <div class="glass-card flagged-panel">
+          <h3>🚩 Flagged Signs <span class="badge">7</span></h3>
+          <div class="flag-item">
+            <div>
+              <span class="f-word">Hospital</span>
+              <span class="f-details"> · ISL · 7 reports</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-primary btn-sm">Review</button>
+              <button class="btn-outline btn-sm">Retrain</button>
+            </div>
+          </div>
+          <div class="flag-item">
+            <div>
+              <span class="f-word">Appointment</span>
+              <span class="f-details"> · ISL · 4 reports</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-primary btn-sm">Review</button>
+              <button class="btn-outline btn-sm">Retrain</button>
+            </div>
+          </div>
+          <div class="flag-item">
+            <div>
+              <span class="f-word">Classroom</span>
+              <span class="f-details"> · ASL · 3 reports</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-primary btn-sm">Review</button>
+              <button class="btn-outline btn-sm">Retrain</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-col gap-24">
+          <div class="glass-card health-panel">
+            <h3>System Health</h3>
+            <div class="health-check"><span class="check-icon">✓</span> Web Speech API</div>
+            <div class="health-check"><span class="check-icon">✓</span> WebGL 2.0</div>
+            <div class="health-check"><span class="check-icon">✓</span> MediaPipe WASM</div>
+            <div class="health-check"><span class="check-icon">✓</span> IndexedDB</div>
+            <div class="health-check"><span class="check-icon">✓</span> TensorFlow.js Backend</div>
+          </div>
+          <div class="glass-card retrain-section">
+            <h3>Model Retraining</h3>
+            <div class="retrain-bar">
+              <div class="retrain-label">
+                <span>ISL Regional Model</span>
+                <span class="text-teal">67%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:67%"></div>
+              </div>
+            </div>
+            <div class="retrain-bar mt-16">
+              <div class="retrain-label">
+                <span>ASL Base Model</span>
+                <span class="text-violet">100%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:100%; background: linear-gradient(90deg, var(--accent-violet), #9B7DFF);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== JAVASCRIPT ===== -->
+  <script>
+    // ==== PAGE NAVIGATION ====
+    const customerPages = ['landing', 'about', 'login', 'onboarding', 'hub', 'settings', 'history'];
+    const adminPages = ['dictionary', 'collector', 'dashboard'];
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const page = document.getElementById('page-' + id);
+      if (page) page.classList.add('active');
+
+      // Toggle navbars
+      if (adminPages.includes(id)) {
+        document.getElementById('navbar-customer').style.display = 'none';
+        document.getElementById('navbar-admin').style.display = 'flex';
+      } else {
+        document.getElementById('navbar-customer').style.display = 'flex';
+        document.getElementById('navbar-admin').style.display = 'none';
+      }
+
+      // Update active nav link
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.page === id);
+      });
+
+      window.scrollTo(0, 0);
+    }
+
+    function switchToAdmin() {
+      showPage('dictionary');
+    }
+    function switchToCustomer() {
+      showPage('landing');
+    }
+
+    // ==== ROLE SELECTOR ====
+    function selectRole(el) {
+      el.parentElement.querySelectorAll('.role-opt').forEach(r => r.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ==== PILL TOGGLE ====
+    function togglePill(el) {
+      el.classList.toggle('active');
+    }
+
+    // ==== PRESET TOGGLE ====
+    function togglePreset(el) {
+      el.classList.toggle('active');
+      const toggle = el.querySelector('.toggle');
+      if (toggle) toggle.classList.toggle('active');
+    }
+
+    // ==== TAB SWITCH ====
+    function switchTab(el) {
+      el.parentElement.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ==== WORD SELECT (Admin Dictionary) ====
+    function selectWord(el) {
+      el.parentElement.querySelectorAll('.word-item').forEach(w => w.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    // ==== MIC TOGGLE ====
+    function toggleMic(btn) {
+      btn.classList.toggle('recording');
+      if (btn.classList.contains('recording')) {
+        btn.style.background = 'linear-gradient(135deg, var(--accent-red), #E04060)';
+        btn.innerHTML = '⏹';
+      } else {
+        btn.style.background = 'linear-gradient(135deg, var(--accent-teal), #00B8A9)';
+        btn.innerHTML = '🎙️';
+      }
+    }
+
+    // ==== RECORDING SIMULATION ====
+    let isRecording = false;
+    let recInterval = null;
+    let recTime = 0;
+
+    function toggleRecording() {
+      const btn = document.getElementById('rec-btn');
+      const timer = document.getElementById('rec-timer');
+      const bar = document.getElementById('frame-bar');
+      const count = document.getElementById('frame-count');
+
+      if (!isRecording) {
+        isRecording = true;
+        btn.classList.add('recording');
+        btn.innerHTML = '⏹';
+        recTime = 0;
+        recInterval = setInterval(() => {
+          recTime += 0.1;
+          timer.textContent = recTime.toFixed(1) + 's';
+          const frames = Math.min(60, Math.round(recTime * 30));
+          count.textContent = frames + ' / 60';
+          bar.style.width = (frames / 60 * 100) + '%';
+          if (frames >= 60) {
+            toggleRecording();
+          }
+        }, 100);
+      } else {
+        isRecording = false;
+        btn.classList.remove('recording');
+        btn.innerHTML = '⏺';
+        clearInterval(recInterval);
+      }
+    }
+
+    // ==== SPARKLINE GENERATION ====
+    function generateSparkline(containerId, count, minH, maxH) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      for (let i = 0; i < count; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const h = Math.random() * (maxH - minH) + minH;
+        bar.style.height = h + '%';
+        container.appendChild(bar);
+      }
+    }
+
+    generateSparkline('spark-fps', 20, 50, 95);
+    generateSparkline('spark-latency', 20, 30, 80);
+    generateSparkline('spark-accuracy', 20, 70, 100);
+
+    // ==== COORDINATE STREAM SIMULATION ====
+    function simulateCoords() {
+      const grid = document.getElementById('coord-stream');
+      if (!grid || !document.getElementById('page-collector').classList.contains('active')) return;
+      const parts = ['Hand_L', 'Hand_R', 'Pose', 'Face'];
+      const joints = {
+        'Hand_L': ['thumb_tip', 'index_tip', 'middle_tip', 'ring_tip', 'pinky_tip'],
+        'Hand_R': ['thumb_tip', 'index_tip', 'middle_tip'],
+        'Pose': ['l_shoulder', 'r_shoulder', 'l_elbow'],
+        'Face': ['nose_tip', 'l_eye', 'r_eye']
+      };
+      const part = parts[Math.floor(Math.random() * parts.length)];
+      const jList = joints[part];
+      const joint = jList[Math.floor(Math.random() * jList.length)];
+      const x = (Math.random() * 0.6 + 0.2).toFixed(3);
+      const y = (Math.random() * 0.5 + 0.3).toFixed(3);
+      const z = (Math.random() * 0.06 - 0.03).toFixed(3);
+      const line = document.createElement('div');
+      line.textContent = `[${part}] ${joint}: (${x}, ${y}, ${z})`;
+      grid.prepend(line);
+      if (grid.children.length > 30) grid.removeChild(grid.lastChild);
+    }
+    setInterval(simulateCoords, 400);
+  </script>
+</body>
+</html>
